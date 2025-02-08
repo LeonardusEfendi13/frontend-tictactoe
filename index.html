@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Start Bootstrap for modal -->
+    <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"
+    />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <!-- End Bootstrap for modal -->
+    <title>Board Display</title>
+    <style>
+      .board {
+        display: grid;
+        /* grid-template-columns: repeat(4, 100px); Adjust number of columns */
+        grid-gap: 5px;
+        margin: 20px;
+      }
+
+      .cell {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        border: 1px solid #000;
+        font-size: 24px;
+        background-color: lightgrey;
+      }
+      .cell:hover {
+        background-color: chocolate;
+      }
+
+      .container {
+        width: fit-content;
+        margin: 0 auto;
+      }
+
+      .title {
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body style="text-align: center">
+    <!-- init Modal -->
+    <div
+      class="modal fade"
+      id="myModal"
+      role="dialog"
+      data-backdrop="static"
+      data-keyboard="false"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title">Welcome to Tic Tac Toe Game</h4>
+          </div>
+          <div class="modal-body">
+            <form>
+              <label for="boardSize">Please define your board size</label>
+              <br />
+              <input type="number" id="boardSize1" style="width: 100px" /> x
+              <input
+                type="number"
+                id="boardSize2"
+                style="width: 100px"
+                disabled
+              />
+              <p id="error" style="color: red; display: none">
+                Input not valid
+              </p>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button id="startGame" type="button" class="btn btn-success">
+              Start
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End init Modal -->
+
+    <!-- Game Over Modal -->
+    <div
+      class="modal fade"
+      id="gameOverModal"
+      role="dialog"
+      data-backdrop="static"
+      data-keyboard="false"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="result">
+              Game over, the winner is ${currentPlayer}
+            </h4>
+          </div>
+          <div class="modal-body">
+            <p>Start Again?</p>
+          </div>
+          <div class="modal-footer">
+            <button id="restart" type="button" class="btn btn-success">
+              Restart
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Game Over Modal -->
+
+    <div class="title">
+      <h3>Tic Tac Toe Game</h3>
+      <button id="mainRestart" type="button" class="btn btn-danger">
+        Restart
+      </button>
+    </div>
+    <div class="container">
+      <div id="board" class="board"></div>
+    </div>
+
+    <script>
+        // Dev
+      // var backEnd = "http://localhost:8080";
+
+      // Prod
+      var backEnd = "https://plasma-set-450314-g5.et.r.appspot.com";
+
+      var board = [];
+      var currentPlayer = "X";
+      var isGameOver = false;
+      var isDraw = false;
+      var boardClass = document.getElementById("board");
+      var boardSize = document.getElementById("boardSize1").value;
+
+      //Start Modal Logic
+      var gameBoard = [];
+      if (!boardSize) {
+        $("#myModal").modal("show");
+      }
+
+      //Reset Game
+      document
+        .getElementById("mainRestart")
+        .addEventListener("click", restart);
+
+      //Set second input field with first input field
+      document
+        .getElementById("boardSize1")
+        .addEventListener("input", function () {
+          document.getElementById("boardSize2").value = this.value;
+        });
+
+      //Perform logic and checking if start button is clicked
+      document
+        .getElementById("startGame")
+        .addEventListener("click", function () {
+          boardSize = parseInt(document.getElementById("boardSize1").value);
+          if (boardSize >= 3) {
+            document.getElementById("error").style.display = "none";
+
+            // Close the modal
+            $("#myModal").modal("hide");
+            isGameOver = false;
+
+            //Initialize board in back end
+            initializeServer(boardSize);
+          } else {
+            document.getElementById("error").style.display = "block";
+          }
+        });
+
+      //End Modal Logic
+
+      //Initialize board to back end with input size
+      function initializeServer(boardSize) {
+        fetch(`${backEnd}/tictactoe/start?size=${boardSize}`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status == "success") {
+              //Get created board from back end
+              getBoardFromBackEnd();
+              currentPlayer = data.currentPlayer;
+              console.log("Success intialized board from back end");
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+
+      // Function to render the board
+      function refreshBoard(board) {
+        const boardContainer = document.getElementById("board");
+        boardContainer.innerHTML = ""; // Clear existing board if any
+        const boardGap = 100 / boardSize;
+        boardClass.style.gridTemplateColumns = `repeat(${boardSize}, ${boardGap}%)`;
+        // Loop through each row of the board
+        board.forEach((row, rowIndex) => {
+          // Loop through each cell in the row
+          row.forEach((col, colIndex) => {
+            // Create a cell div
+            const cellDiv = document.createElement("button");
+            cellDiv.classList.add("cell");
+            cellDiv.textContent = col;
+
+            // Add click event to track index
+            cellDiv.addEventListener("click", function () {
+              sendPlayerAction(rowIndex, colIndex);
+                            console.log(`Clicked on [${rowIndex}][${colIndex}]`);
+            });
+
+            // Append the cell to the board
+            boardContainer.appendChild(cellDiv);
+          });
+        });
+        //Check is game over
+        if (isGameOver && isDraw) {
+          $("#gameOverModal").modal("show");
+          document.getElementById(
+            "result"
+          ).innerHTML = `Game over: The match ends in a Draw!`;
+          document.getElementById("restart").addEventListener("click", restart);
+        }else if(isGameOver && !isDraw){
+            $("#gameOverModal").modal("show");
+          document.getElementById(
+            "result"
+          ).innerHTML = `Game over: The winner is ${currentPlayer}`;
+          document.getElementById("restart").addEventListener("click", restart);
+        }
+      }
+
+      //Function to reload page
+      function restart() {
+        location.reload();
+      }
+
+      // Fetch Board and then render
+      function getBoardFromBackEnd() {
+        fetch(`${backEnd}/tictactoe/getBoard`)
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status == "success") {
+              board = data.data;
+              console.log("Board data: ", board);
+
+              // Call refreshBoard after board data is available
+              refreshBoard(board);
+            } else {
+              console.log("Error fetching board data.");
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+
+      //Send player move to back end
+      function sendPlayerAction(rowIndex, colIndex) {
+        fetch(`${backEnd}/tictactoe/move`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            row: rowIndex,
+            col: colIndex,
+          }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.status == "success") {
+              currentPlayer = data.currentPlayer;
+              isGameOver = data.isGameOver;
+              isDraw = data.isDraw;
+              console.log("current player is : ", currentPlayer);
+              // Call endpoint for refresh the board
+              getBoardFromBackEnd();
+            } else {
+              console.log("Error moving the player.");
+            }
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+
+    </script>
+  </body>
+</html>
